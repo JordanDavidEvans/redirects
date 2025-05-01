@@ -2,57 +2,51 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sitemap Slug Extractor</title>
-  <style>
-    body { font-family: sans-serif; padding: 1em; }
-    textarea { width: 100%; height: 100px; }
-    #log { white-space: pre-wrap; background: #111; color: #0f0; padding: 1em; margin-top: 1em; height: 200px; overflow: auto; }
-    iframe { display: none; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sitemap to CSV Exporter</title>
 </head>
 <body>
-  <h2>🧠 Sitemap Slug Extractor (Browser-based)</h2>
-  <label for="site">Enter full site URL (http:// or https://):</label><br>
-  <input type="text" id="site" placeholder="http://example.com"><br><br>
-  <button onclick="extractSlugs()">Extract Sitemap Slugs</button>
+  <h2>Sitemap to CSV Exporter</h2>
 
-  <div id="log">Logs will appear here...</div>
-  <iframe id="sitemapFrame"></iframe>
+  <input id="sitemap-url" type="text" placeholder="Enter sitemap.xml URL" style="width:400px;">
+  <button onclick="exportCSV()">Export CSV</button>
 
   <script>
-    function log(message) {
-      document.getElementById("log").textContent += message + "\n";
-    }
+    async function exportCSV() {
+      const urlInput = document.getElementById('sitemap-url').value.trim();
+      console.log("Fetching sitemap from:", urlInput); // Debugging log
 
-    async function extractSlugs() {
-      const site = document.getElementById("site").value.trim().replace(/\/+$/, '');
-      const sitemapUrl = site + "/sitemap.xml";
-      log("📡 Trying to load sitemap: " + sitemapUrl);
+      if (!urlInput) {
+        alert('Please enter a valid URL.');
+        return;
+      }
 
-      const iframe = document.getElementById("sitemapFrame");
-      iframe.src = sitemapUrl;
+      try {
+        const response = await fetch('https://redirect.jordan-evans.workers.dev/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sitemap: urlInput })
+        });
 
-      iframe.onload = () => {
-        try {
-          const doc = iframe.contentDocument || iframe.contentWindow.document;
-          const locs = [...doc.querySelectorAll("loc")].map(loc => loc.textContent.trim());
-          const slugs = locs.map(url => {
-            try {
-              return new URL(url).pathname.replace(/^\/+/, '');
-            } catch {
-              return '';
-            }
-          }).filter(Boolean);
-
-          log(`✅ Found ${slugs.length} slugs:\n` + slugs.join('\n'));
-        } catch (err) {
-          log("❌ Error reading iframe content (maybe blocked): " + err.message);
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
         }
-      };
 
-      iframe.onerror = () => {
-        log("❌ Failed to load sitemap in iframe.");
-      };
+        const csvData = await response.text();
+
+        // Trigger file download
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = 'sitemap.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to fetch or convert sitemap.');
+      }
     }
   </script>
 </body>
