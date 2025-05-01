@@ -2,54 +2,75 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Compare Sitemaps</title>
+  <title>Sitemap Slug Fetcher</title>
   <style>
-    body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; }
-    input, button { padding: 0.5rem; margin: 0.5rem 0.25rem; width: 100%; }
+    body { font-family: sans-serif; max-width: 1000px; margin: 2rem auto; }
+    input, button, textarea { font-size: 1rem; }
+    input, button { padding: 0.5rem; margin: 0.25rem 0; width: 100%; }
     textarea { width: 100%; height: 200px; margin-top: 1rem; }
-    .column { float: left; width: 48%; padding: 1%; }
-    .row::after { content: ""; display: table; clear: both; }
-    h2 { margin-top: 2rem; }
+    .row { display: flex; gap: 2%; }
+    .column { flex: 1; }
+    h2 { margin-top: 1.5rem; }
+    #consoleOutput { background: #111; color: #0f0; padding: 1rem; font-family: monospace; height: 150px; overflow-y: auto; }
   </style>
 </head>
 <body>
-  <h1>Sitemap Redirect Builder</h1>
+  <h1>🔎 Sitemap Slug Comparison Tool</h1>
 
-  <label>Old Site URL:</label>
+  <label for="site1">Old Site URL:</label>
   <input id="site1" placeholder="https://oldsite.com" />
 
-  <label>New Site URL:</label>
+  <label for="site2">New Site URL:</label>
   <input id="site2" placeholder="https://newsite.com" />
 
-  <button onclick="compareSitemaps()">Fetch Sitemaps</button>
+  <button onclick="fetchSitemaps()">Fetch Sitemap Slugs</button>
 
   <div class="row">
     <div class="column">
-      <h2>Old Site Pages</h2>
+      <h2>Old Site Slugs</h2>
       <textarea id="site1Output" readonly></textarea>
     </div>
     <div class="column">
-      <h2>New Site Pages</h2>
+      <h2>New Site Slugs</h2>
       <textarea id="site2Output" readonly></textarea>
     </div>
   </div>
 
+  <h2>🪵 Log Console</h2>
+  <div id="consoleOutput"></div>
+
   <script>
-    async function compareSitemaps() {
+    function log(message) {
+      const consoleEl = document.getElementById("consoleOutput");
+      const time = new Date().toLocaleTimeString();
+      consoleEl.innerHTML += `[${time}] ${message}<br>`;
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    async function fetchSitemaps() {
       const site1 = document.getElementById("site1").value.trim();
       const site2 = document.getElementById("site2").value.trim();
+
+      if (!site1 || !site2) {
+        log("❗ Please enter both site URLs.");
+        return;
+      }
+
       const endpoint = `https://redirect.jordan-evans.workers.dev/?site1=${encodeURIComponent(site1)}&site2=${encodeURIComponent(site2)}`;
+      log(`📡 Fetching: ${endpoint}`);
 
       try {
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("Error fetching sitemap data");
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await res.json();
-        document.getElementById("site1Output").value = data.site1.join("\n");
-        document.getElementById("site2Output").value = data.site2.join("\n");
+        const result = await response.json();
+        log(`✅ Fetched ${result.site1.length} slugs from site1`);
+        log(`✅ Fetched ${result.site2.length} slugs from site2`);
 
-      } catch (err) {
-        alert("Failed to fetch sitemaps: " + err.message);
+        document.getElementById("site1Output").value = result.site1.join("\n");
+        document.getElementById("site2Output").value = result.site2.join("\n");
+      } catch (error) {
+        log(`❌ Error: ${error.message}`);
       }
     }
   </script>
