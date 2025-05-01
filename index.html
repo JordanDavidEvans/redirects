@@ -60,7 +60,7 @@
 
         for (let i = 0; i < locTags.length; i++) {
           const fullUrl = locTags[i].textContent;
-          const slug = new URL(fullUrl).pathname.replace(/^\\//, "");
+          const slug = new URL(fullUrl).pathname.replace(/^\/+/, "");
           redirects.push({ oldUrl: slug, newUrl: "", explanation: "" });
 
           const row = document.createElement("tr");
@@ -89,7 +89,7 @@
 
     function downloadCSV() {
       const rows = [["oldUrl", "newPageName", "explanation"], ...redirects.map(r => [r.oldUrl, r.newUrl, r.explanation])];
-      const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\\n");
+      const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
