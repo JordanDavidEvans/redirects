@@ -1,28 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Redirect Manager</title>
+  <meta charset="UTF-8" />
+  <title>Redirect Crawler</title>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 1rem; }
-    input, button { padding: 0.5rem; margin: 0.25rem; }
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; }
+    input, button { padding: 0.5rem; margin: 0.5rem 0.25rem; }
     table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
     th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
     th { background: #f0f0f0; }
   </style>
 </head>
 <body>
-  <h1>Redirect Manager</h1>
+  <h1>Redirect Crawler</h1>
 
-  <input type="text" id="oldUrl" placeholder="Old URL (slug only)">
-  <input type="text" id="newUrl" placeholder="New Page URL (slug only)">
-  <button onclick="addRedirect()">Add</button>
-  <button onclick="downloadCSV()">Download CSV</button>
+  <input type="text" id="siteUrl" placeholder="Enter live site URL (e.g., https://example.com)">
+  <button onclick="crawlSitemap()">Crawl Sitemap</button>
 
-  <table id="redirectTable">
+  <table id="resultsTable" style="display:none;">
     <thead>
       <tr>
-        <th>Old URL</th>
+        <th>Old URL Slug</th>
         <th>New URL</th>
         <th>Explanation</th>
       </tr>
@@ -30,8 +28,10 @@
     <tbody></tbody>
   </table>
 
+  <button id="downloadBtn" style="display:none;" onclick="downloadCSV()">Download CSV</button>
+
   <script>
-    const redirects = [];
+    let redirects = [];
 
     function explainRedirect(url) {
       if (!url || url === "/") return "Redirected to homepage";
@@ -42,23 +42,49 @@
       return `Redirected to ${url}`;
     }
 
-    function addRedirect() {
-      const oldInput = document.getElementById("oldUrl");
-      const newInput = document.getElementById("newUrl");
-      const oldUrl = oldInput.value.trim();
-      const newUrl = newInput.value.trim();
+    async function crawlSitemap() {
+      const site = document.getElementById("siteUrl").value.trim().replace(/\/+$/, "");
+      if (!site.startsWith("http")) return alert("Include http:// or https:// in the URL");
 
-      if (!oldUrl) return alert("Old URL is required");
+      const sitemapUrl = site + "/sitemap.xml";
+      try {
+        const res = await fetch(sitemapUrl);
+        const text = await res.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, "application/xml");
+        const locTags = xml.getElementsByTagName("loc");
 
-      const explanation = explainRedirect(newUrl);
-      redirects.push({ oldUrl, newUrl, explanation });
+        redirects = [];
+        const table = document.querySelector("#resultsTable tbody");
+        table.innerHTML = "";
 
-      const row = document.createElement("tr");
-      row.innerHTML = `<td>${oldUrl}</td><td>${newUrl}</td><td>${explanation}</td>`;
-      document.querySelector("#redirectTable tbody").appendChild(row);
+        for (let i = 0; i < locTags.length; i++) {
+          const fullUrl = locTags[i].textContent;
+          const slug = new URL(fullUrl).pathname.replace(/^\\//, "");
+          redirects.push({ oldUrl: slug, newUrl: "", explanation: "" });
 
-      oldInput.value = "";
-      newInput.value = "";
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${slug}</td>
+            <td><input type="text" placeholder="/new-path" oninput="updateRedirect(${i}, this.value)"></td>
+            <td id="explain-${i}"></td>
+          `;
+          table.appendChild(row);
+        }
+
+        document.getElementById("resultsTable").style.display = "table";
+        document.getElementById("downloadBtn").style.display = "inline-block";
+
+      } catch (err) {
+        alert("Failed to fetch sitemap: " + err.message);
+      }
+    }
+
+    function updateRedirect(index, newUrl) {
+      redirects[index].newUrl = newUrl;
+      redirects[index].explanation = explainRedirect(newUrl);
+      document.getElementById("explain-" + index).innerText = redirects[index].explanation;
     }
 
     function downloadCSV() {
