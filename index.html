@@ -1,77 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Sitemap Slug Fetcher</title>
+  <meta charset="UTF-8">
+  <title>Sitemap Slug Extractor</title>
   <style>
-    body { font-family: sans-serif; max-width: 1000px; margin: 2rem auto; }
-    input, button, textarea { font-size: 1rem; }
-    input, button { padding: 0.5rem; margin: 0.25rem 0; width: 100%; }
-    textarea { width: 100%; height: 200px; margin-top: 1rem; }
-    .row { display: flex; gap: 2%; }
-    .column { flex: 1; }
-    h2 { margin-top: 1.5rem; }
-    #consoleOutput { background: #111; color: #0f0; padding: 1rem; font-family: monospace; height: 150px; overflow-y: auto; }
+    body { font-family: sans-serif; padding: 1em; }
+    textarea { width: 100%; height: 100px; }
+    #log { white-space: pre-wrap; background: #111; color: #0f0; padding: 1em; margin-top: 1em; height: 200px; overflow: auto; }
+    iframe { display: none; }
   </style>
 </head>
 <body>
-  <h1>🔎 Sitemap Slug Comparison Tool</h1>
+  <h2>🧠 Sitemap Slug Extractor (Browser-based)</h2>
+  <label for="site">Enter full site URL (http:// or https://):</label><br>
+  <input type="text" id="site" placeholder="http://example.com"><br><br>
+  <button onclick="extractSlugs()">Extract Sitemap Slugs</button>
 
-  <label for="site1">Old Site URL:</label>
-  <input id="site1" placeholder="https://oldsite.com" />
-
-  <label for="site2">New Site URL:</label>
-  <input id="site2" placeholder="https://newsite.com" />
-
-  <button onclick="fetchSitemaps()">Fetch Sitemap Slugs</button>
-
-  <div class="row">
-    <div class="column">
-      <h2>Old Site Slugs</h2>
-      <textarea id="site1Output" readonly></textarea>
-    </div>
-    <div class="column">
-      <h2>New Site Slugs</h2>
-      <textarea id="site2Output" readonly></textarea>
-    </div>
-  </div>
-
-  <h2>🪵 Log Console</h2>
-  <div id="consoleOutput"></div>
+  <div id="log">Logs will appear here...</div>
+  <iframe id="sitemapFrame"></iframe>
 
   <script>
     function log(message) {
-      const consoleEl = document.getElementById("consoleOutput");
-      const time = new Date().toLocaleTimeString();
-      consoleEl.innerHTML += `[${time}] ${message}<br>`;
-      consoleEl.scrollTop = consoleEl.scrollHeight;
+      document.getElementById("log").textContent += message + "\n";
     }
 
-    async function fetchSitemaps() {
-      const site1 = document.getElementById("site1").value.trim();
-      const site2 = document.getElementById("site2").value.trim();
+    async function extractSlugs() {
+      const site = document.getElementById("site").value.trim().replace(/\/+$/, '');
+      const sitemapUrl = site + "/sitemap.xml";
+      log("📡 Trying to load sitemap: " + sitemapUrl);
 
-      if (!site1 || !site2) {
-        log("❗ Please enter both site URLs.");
-        return;
-      }
+      const iframe = document.getElementById("sitemapFrame");
+      iframe.src = sitemapUrl;
 
-      const endpoint = `https://redirect.jordan-evans.workers.dev/?site1=${encodeURIComponent(site1)}&site2=${encodeURIComponent(site2)}`;
-      log(`📡 Fetching: ${endpoint}`);
+      iframe.onload = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          const locs = [...doc.querySelectorAll("loc")].map(loc => loc.textContent.trim());
+          const slugs = locs.map(url => {
+            try {
+              return new URL(url).pathname.replace(/^\/+/, '');
+            } catch {
+              return '';
+            }
+          }).filter(Boolean);
 
-      try {
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          log(`✅ Found ${slugs.length} slugs:\n` + slugs.join('\n'));
+        } catch (err) {
+          log("❌ Error reading iframe content (maybe blocked): " + err.message);
+        }
+      };
 
-        const result = await response.json();
-        log(`✅ Fetched ${result.site1.length} slugs from site1`);
-        log(`✅ Fetched ${result.site2.length} slugs from site2`);
-
-        document.getElementById("site1Output").value = result.site1.join("\n");
-        document.getElementById("site2Output").value = result.site2.join("\n");
-      } catch (error) {
-        log(`❌ Error: ${error.message}`);
-      }
+      iframe.onerror = () => {
+        log("❌ Failed to load sitemap in iframe.");
+      };
     }
   </script>
 </body>
